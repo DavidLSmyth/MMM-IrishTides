@@ -4,53 +4,99 @@
  * By Mykle1
  *
  */
-Module.register("MMM-SimpleTides", {
+
+//data is from https://erddap.marine.ie/erddap/tabledap/IMI-TidePrediction.html
+const today_results = [];
+const today = new Date();
+today.setHours(0,0,0,0);
+
+
+function get_tide_data_table_row(tide_data){
+  let img = tide_data["type"]==="l" ? "low" : "high";
+  return `<tr> 
+   <td>${new Date(tide_data["time"]).toLocaleTimeString()} ${Number.parseFloat(tide_data["height"]).toFixed(2)}m <img class = img src=modules/MMM-IrishTides/images/${img}.png width=12% height=12%</td> 
+   </tr>
+`
+}
+
+function get_tides_table_for_day(tide_data){
+	console.log("gttfd");
+	console.log(tide_data);
+        let table = document.createElement("table");
+
+ let returnString = `<tr> 
+   <td rowspan = "5">${new Date(tide_data[0]["time"]).toDateString()} </td> 
+ </tr>`
+  tide_data.forEach(data => returnString = returnString.concat(get_tide_data_table_row(data)));  
+  	table.innerHTML = returnString + "<hr>";
+	return table;
+}
+
+
+const groupBy = (array, key) => {
+    // Return the reduced array
+    return array.reduce((result, currentItem) => {
+      // If an array already present for key, push it to the array. Otherwise create an array and push the object.
+      (result[currentItem[key]] = result[currentItem[key]] || []).push( currentItem );
+      // return the current iteration `result` value, this will be the next iteration's `result` value and accumulate
+      return result;
+    }, {}); // Empty object is the initial value for result object
+  };
+
+
+function generate_tide_row_html(tide_data){
+                // Tide #2 = High/Low icon, day of the week, time of tide (am/pm)
+        let date = document.createElement("div");
+        date.classList.add("xsmall", "bright", "date");
+        let img = tide_data["type"]==="l" ? "low" : "high";
+	console.log("tide data");
+	console.log(tide_data);
+	date.innerHTML = `<img class = img src=modules/MMM-IrishTides/images/${img}.png width=12% height=12%>` + " &nbsp " + tide_data.date + "&nbsp" + tide_data["height"] + "m"; 
+	console.log(date);
+	return date;
+}
+ 
+
+Module.register("MMM-IrishTides", {
 
     // Module config defaults.
     defaults: {
-        apiKey: "", // Free apiKey @ https://www.worldtides.info/register
-        lat: "", // your latitude
-        lon: "", // your longitude
-        height: "ft", // ft = feet, m = meters for tide height
-        useHeader: false, // False if you don't want a header      
-        header: "", // Change in config file. useHeader must be true
+       useHeader: false,              // False if you don't want a header      
+        header: "",                    // Change in config file. useHeader must be true
         maxWidth: "300px",
-        animationSpeed: 3000, // fade speed
+        animationSpeed: 3000,          // fade speed
         initialLoadDelay: 3250,
         retryDelay: 2500,
-        rotateInterval: 5 * 60 * 1000, // 5 minutes
-        updateInterval: 60 * 60 * 1000, // Equals 720 of 1000 free calls a month
+        updateInterval: 12 * 60 * 60 * 1000, // Twice a day = 1000ms = 1s * 60 = 1 minute * 60 = 1hr * 12 = 12hr
     },
+
 
     getStyles: function() {
-        return ["MMM-SimpleTides.css"];
+        return ["MMM-IrishTides.css"];
     },
 
+
+    // Define start sequence.
     start: function() {
         Log.info("Starting module: " + this.name);
 
-        requiresVersion: "2.1.1",
-
-        //  Set locale.
-        this.url = "https://www.worldtides.info/api?extremes&lat=" + this.config.lat + "&lon=" + this.config.lon + "&length=604800&key=" + this.config.apiKey;
-        this.tides = [];
-        this.activeItem = 0;
-        this.rotateInterval = null;
+	this.tides = [];
+        this.today = "";
         this.scheduleUpdate();
     },
 
 
     getDom: function() {
-		
-		// create wrapper
+        var tides = this.tides;
         var wrapper = document.createElement("div");
         wrapper.className = "wrapper";
         wrapper.style.maxWidth = this.config.maxWidth;
 
-		// Loading 
+		// Loading . . .
         if (!this.loaded) {
-            wrapper.innerHTML = "First the tide rushes in . . .";
-            wrapper.classList.add("bright", "light", "small");
+            wrapper.classList.add("wrapper");
+            wrapper.innerHTML = "Getting tides";
+            wrapper.className = "bright light small";
             return wrapper;
         }
 
@@ -62,106 +108,52 @@ Module.register("MMM-SimpleTides", {
             wrapper.appendChild(header);
         }
 
-            // Rotating my data
-            var tides = this.tides;
-
-            var keys = Object.keys(this.tides);
-        if (keys.length > 0) {
-            if (this.activeItem >= keys.length) {
-                this.activeItem = 0;
-            }
-            var tides = this.tides[keys[this.activeItem]];
-
-            //	console.log(tides); // for checking
-
-            var top = document.createElement("div");
-            top.classList.add("list-row");
-
-            // Weekday and date adjusts to users local time and format // Stackoverflow.com
-            var dt = document.createElement("div");
-            dt.classList.add("small", "bright", "dt");
-            //	console.log(tides) // for checking
-            dt.innerHTML = moment.utc(tides.dt * 1000).local().format("dddd, MMM DD, YYYY"); // Stackoverflow.com
-            wrapper.appendChild(dt);
+        var top = document.createElement("div");
+        top.classList.add("list-row");
 
 
-            // type = High or Low tide, icon AND time
-            var type = document.createElement("div");
-            type.classList.add("small", "bright", "type");
-        if (tides.type == "Low") {
-                type.innerHTML = tides.type + " tide" + " &nbsp " + " <img class = img src=modules/MMM-SimpleTides/images/low.png width=10% height=10%>" + " &nbsp " + moment.utc(tides.dt * 1000).local().format("  h:mm A");
-        } else {
-                type.innerHTML = tides.type + " tide" + " &nbsp " + " <img class = img src=modules/MMM-SimpleTides/images/high.png width=10% height=10%>" + " &nbsp " + moment.utc(tides.dt * 1000).local().format("  h:mm A");
-            }
-            wrapper.appendChild(type);
-			
-
-            // height of tide variance (round to two decimals for ft, m is three decimals)
-            var height = document.createElement("div");
-            height.classList.add("small", "bright", "height");
-        if (this.config.height == "ft") {
-                height.innerHTML = "Tidal variance is " + Number(Math.round(tides.height * 3.28 + 'e2') + 'e-2') + " ft"; // https://jsfiddle.net/k5tpq3pd/36/
-        } else {
-                height.innerHTML = "Tidal variance is " + tides.height + " meters";
-            }
-            wrapper.appendChild(height);
-			
-
-            // Tide station nearest to config lat and lon
-            var station = document.createElement("div");
-            station.classList.add("small", "bright", "station");
-            station.innerHTML = this.station;
-            wrapper.appendChild(station);
-			
-
-            // lat and lon of tide station nearest to config lat and lon
-            var latLon = document.createElement("div");
-            latLon.classList.add("small", "bright", "latLon");
-            latLon.innerHTML = "Tide station " + this.respLat + ", " + this.respLon;
-            wrapper.appendChild(latLon);
-
-        }
+        // place
+        var place = document.createElement("div");
+        place.classList.add("small", "bright", "place");
+        place.innerHTML = "Galway Tides" + "<hr>";
+        top.appendChild(place);
+	let tides_grouped_by_date = groupBy(tides, "date");
+	console.log(tides_grouped_by_date);
+	for (var key in tides_grouped_by_date){
+		top.appendChild(get_tides_table_for_day(tides_grouped_by_date[key]));
+	}
+		
+        wrapper.appendChild(top);
         return wrapper;
     },
 
 
     processTides: function(data) {
-        this.today = data.Today;
-        this.respLat = data.responseLat; // before extremes object
-        this.respLon = data.responseLon; // before extremes object
-        this.station = data.station; // before extremes object
-        this.tides = data.extremes; // Object
+        this.station = "Galway"; // before extremes object
+        this.tides = data; // Object
         this.loaded = true;
-        //	console.log(this.tides); // for checking
-    },
-
-    scheduleCarousel: function() {
-        console.log("Carousel of Tides fucktion!");
-        this.rotateInterval = setInterval(() => {
-            this.activeItem++;
-            this.updateDom(this.config.animationSpeed);
-        }, this.config.rotateInterval);
+    //	console.log(this.tides); // for checking
     },
 
     scheduleUpdate: function() {
         setInterval(() => {
             this.getTides();
-        }, this.config.updateInterval);
+        },this.config.updateInterval);
         this.getTides(this.config.initialLoadDelay);
     },
 
     getTides: function() {
-        this.sendSocketNotification('GET_TIDES', this.url);
+        this.sendSocketNotification('GET_TIDES');
     },
 
     socketNotificationReceived: function(notification, payload) {
         if (notification === "TIDES_RESULT") {
+	    console.log("recieved tide data");
+	    console.log(payload);
             this.processTides(payload);
-            if (this.rotateInterval == null) {
-                this.scheduleCarousel();
-            }
             this.updateDom(this.config.animationSpeed);
         }
         this.updateDom(this.config.initialLoadDelay);
     },
+
 });

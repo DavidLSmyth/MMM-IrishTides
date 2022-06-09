@@ -1,0 +1,23 @@
+{
+  "name": "mmm-irishtides",
+  "version": "1.0.0",
+  "description": "A magic mirror repo displaying high and low tides in Ireland",
+  "main": "MMM-IrishTides.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DavidLSmyth/MMM-IrishTides.git"
+  },
+  "author": "DavidLSmyth",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DavidLSmyth/MMM-IrishTides/issues"
+  },
+  "homepage": "https://github.com/DavidLSmyth/MMM-IrishTides#readme",
+  "dependencies": {
+    "csv-parser": "^3.0.0",
+    "moment": "^2.29.3"
+  }
+}
